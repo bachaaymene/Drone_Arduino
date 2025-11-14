@@ -46,6 +46,8 @@ float Kd = 2.5;
 float integral = 0.0;
 float derivative = 0.0;
 float controlOutput5 = 0.0;
+float derivativeMax = 200.0;
+float integralMax = 200.0;
 float controlOutput6 = 0.0;
 float previousError = 0.0;
 float setpoint = 0.0;
@@ -127,6 +129,13 @@ void setup()
 
 void loop()
 {
+  Serial.println(currentTime/1000);
+  if (currentTime/1000 > 200) {
+  esc5.writeMicroseconds(1000);
+  esc6.writeMicroseconds(1000);
+  Serial.println("MPU timeout — motors stopped.");
+  return;
+}
   // If programming failed, don't try to do anything
   if (!dmpReady)
   {
@@ -185,12 +194,21 @@ void loop()
   float error = setpoint - currentAngle;
   currentTime = millis();
   deltaT = (currentTime - previousTime) / 1000.0; // تحويل إلى ثوانٍ
+  if (deltaT <= 0.1) deltaT = 0.1;
   previousTime = currentTime;
   integral = integral + (error * deltaT);
+  // قيد التكامل ليكون ضمن الحدود
+    if (integral > integralMax) integral = integralMax;
+    if (integral < -integralMax) integral = -integralMax;
   derivative = (error - previousError) / deltaT;
   previousError = error;
+  // قيد المشتق ليكون ضمن الحدود
+  if (derivative > derivativeMax) derivative = derivativeMax;
+  if (derivative < -derivativeMax)  derivative = -derivativeMax; 
+
   controlOutput5 = 1300 + (Kp * error) + (Ki * integral) + (Kd * derivative);
   controlOutput6 = 1300 - (Kp * error) + (Ki * integral) + (Kd * derivative);
+
   if (controlOutput5 > outputMax)
     controlOutput5 = outputMax;
   if (controlOutput5 < outputMin)
@@ -203,26 +221,6 @@ void loop()
   esc5.writeMicroseconds(controlOutput5);
   esc6.writeMicroseconds(controlOutput6);
 
-  // Serial.print("error: ");
-  // Serial.print(error);
-  // Serial.print("\t");
-  // Serial.print("integral: ");
-  // Serial.print(integral);
-  // Serial.print("\t");
-  // Serial.print("derivative: ");
-  // Serial.print(derivative);
-  // Serial.print("\t");
-  // Serial.print("setpoint: ");
-  // Serial.println(setpoint);
-  // Serial.print("\t");
-
-  // if (bluetooth.available()) {
-  //   // Read incoming data and display on Serial Monitor
-  //   receivedChar = bluetooth.read();
-  //   Serial.print("receivedChar: ");
-  //   Serial.println(receivedChar);
-  // }
-
   if (bluetooth.available())
   {
     int incoming = bluetooth.read(); // read as int to detect -1 if no data
@@ -232,9 +230,6 @@ void loop()
       // ignore common line endings
       if (incoming != '\r' && incoming != '\n')
       {
-        // print both printable char and numeric codes for debugging
-        Serial.print("receivedChar: ");
-        Serial.print(c);
         receivedChar = c; // use for control below
       }
     }
@@ -246,6 +241,15 @@ void loop()
 
   if (receivedChar == 'R') setpoint = -10.0;
 
-  Serial.print("Setpoint: ");
-  Serial.println(setpoint);
+  // Serial.print("Setpoint: ");
+  // Serial.print(setpoint);
+  // Serial.print("    ");
+  // Serial.print("Error: ");
+  // Serial.print(error);
+  // Serial.print("    ");
+  // Serial.print("Integral: ");
+  // Serial.print(integral);
+  // Serial.print("    ");
+  // Serial.print("Derivative: ");
+  // Serial.println(derivative);
 }
