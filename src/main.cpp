@@ -217,11 +217,6 @@ void loop() {
           // print both printable char and numeric codes for debugging
           Serial.print("receivedChar: '");
           Serial.print(c);
-          Serial.print("'  dec=");
-          Serial.print(incoming);
-          Serial.print("  hex=0x");
-          Serial.println(incoming, HEX);
-
           receivedChar = c;  // use for control below
         }
       }
@@ -239,5 +234,7 @@ void loop() {
 
       setpoint = -10.0;
     }
+    Serial.print("Setpoint: ");
+    Serial.println(setpoint);
   }
 }
