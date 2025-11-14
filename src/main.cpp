@@ -37,8 +37,8 @@ void dmpDataReady()
   mpuInterrupt = true;
 }
 
-float Kp = 3.0;
-float Ki = 1.5;
+float Kp = 1.0;
+float Ki = 3;
 float Kd = 1.0;
 // متغيرات PID
 float integral = 0.0;
@@ -116,7 +116,7 @@ void setup()
   }
 
   Serial.println("high");
-  delay(3000);
+  delay(4000);
   esc5.writeMicroseconds(1000);
   esc6.writeMicroseconds(1000);
   Serial.println("low");
@@ -127,8 +127,8 @@ void setup()
 
 void loop()
 {
-  Serial.println(currentTime / 1000);
-  if (currentTime / 1000 > 200)
+  // Serial.println(currentTime / 1000);
+  if (currentTime / 1000 > 100)
   {
     esc5.writeMicroseconds(1000);
     esc6.writeMicroseconds(1000);
@@ -205,8 +205,8 @@ void loop()
   if (derivative > derivativeMax) derivative = derivativeMax;
   if (derivative < -derivativeMax) derivative = -derivativeMax;
 
-  controlOutput5 = 1300 + (Kp * error) + (Ki * integral) + (Kd * derivative);
-  controlOutput6 = 1300 - (Kp * error) + (Ki * integral) + (Kd * derivative);
+  controlOutput5 = 1300 + (Kp * error + Ki * integral + Kd * derivative);
+  controlOutput6 = 1300 - (Kp * error + Ki * integral + Kd * derivative);
 
   if (controlOutput5 > outputMax) controlOutput5 = outputMax;
   if (controlOutput5 < outputMin) controlOutput5 = outputMin;
@@ -231,18 +231,24 @@ void loop()
   }
 
   if (receivedChar == 'N') setpoint = 0;
-  if (receivedChar == 'L') setpoint = 20.0;
-  if (receivedChar == 'R') setpoint = -20.0;
+  if (receivedChar == 'L') setpoint = 10.0;
+  if (receivedChar == 'R') setpoint = -10.0;
 
-  // Serial.print("Setpoint: ");
-  // Serial.print(setpoint);
-  // Serial.print("    ");
+  // // Serial.print("Setpoint: ");
+  // // Serial.print(setpoint);
+  // // Serial.print("    ");
   // Serial.print("Error: ");
   // Serial.print(error);
   // Serial.print("    ");
   // Serial.print("Integral: ");
-  // Serial.print(integral);
+  // Serial.print(Ki*integral);
   // Serial.print("    ");
-  // Serial.print("Derivative: ");
-  // Serial.println(derivative);
+  // Serial.print("Derivative: "); 
+  // Serial.println(Kd*derivative);
+  // // Serial.print("    ");
+  // // Serial.print("Integral: ");
+  // // Serial.print(integral);
+  // // Serial.print("    ");
+  // // Serial.print("Derivative: ");
+  // // Serial.println(derivative);
 }
