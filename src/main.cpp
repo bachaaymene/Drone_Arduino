@@ -25,7 +25,6 @@ uint8_t devStatus;      // return status after each device operation (0 = succes
 uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
 uint16_t fifoCount;     // count of all bytes currently in FIFO
 uint8_t fifoBuffer[64]; // FIFO storage buffer
-
 // Orientation/motion vars
 Quaternion q;        // [w, x, y, z]         quaternion container
 VectorFloat gravity; // [x, y, z]            gravity vector
@@ -38,15 +37,14 @@ void dmpDataReady()
   mpuInterrupt = true;
 }
 
-float Kp = 1.0;
+float Kp = 3.0;
 float Ki = 1.5;
-float Kd = 2.5;
-
+float Kd = 1.0;
 // متغيرات PID
 float integral = 0.0;
 float derivative = 0.0;
 float controlOutput5 = 0.0;
-float derivativeMax = 200.0;
+float derivativeMax = 500.0;
 float integralMax = 200.0;
 float controlOutput6 = 0.0;
 float previousError = 0.0;
@@ -129,13 +127,14 @@ void setup()
 
 void loop()
 {
-  Serial.println(currentTime/1000);
-  if (currentTime/1000 > 200) {
-  esc5.writeMicroseconds(1000);
-  esc6.writeMicroseconds(1000);
-  Serial.println("MPU timeout — motors stopped.");
-  return;
-}
+  Serial.println(currentTime / 1000);
+  if (currentTime / 1000 > 200)
+  {
+    esc5.writeMicroseconds(1000);
+    esc6.writeMicroseconds(1000);
+    Serial.println("MPU timeout — motors stopped.");
+    return;
+  }
   // If programming failed, don't try to do anything
   if (!dmpReady)
   {
@@ -190,33 +189,29 @@ void loop()
     // Serial.print(ypr[PITCH] * (180 / M_PI));
     // Serial.print("\t");
   }
+  
   currentAngle = ypr[ROLL] * (180 / M_PI);
   float error = setpoint - currentAngle;
   currentTime = millis();
   deltaT = (currentTime - previousTime) / 1000.0; // تحويل إلى ثوانٍ
-  if (deltaT <= 0.1) deltaT = 0.1;
   previousTime = currentTime;
   integral = integral + (error * deltaT);
   // قيد التكامل ليكون ضمن الحدود
-    if (integral > integralMax) integral = integralMax;
-    if (integral < -integralMax) integral = -integralMax;
+  if (integral > integralMax) integral = integralMax;
+  if (integral < -integralMax) integral = -integralMax;
   derivative = (error - previousError) / deltaT;
   previousError = error;
   // قيد المشتق ليكون ضمن الحدود
   if (derivative > derivativeMax) derivative = derivativeMax;
-  if (derivative < -derivativeMax)  derivative = -derivativeMax; 
+  if (derivative < -derivativeMax) derivative = -derivativeMax;
 
   controlOutput5 = 1300 + (Kp * error) + (Ki * integral) + (Kd * derivative);
   controlOutput6 = 1300 - (Kp * error) + (Ki * integral) + (Kd * derivative);
 
-  if (controlOutput5 > outputMax)
-    controlOutput5 = outputMax;
-  if (controlOutput5 < outputMin)
-    controlOutput5 = outputMin;
-  if (controlOutput6 > outputMax)
-    controlOutput6 = outputMax;
-  if (controlOutput6 < outputMin)
-    controlOutput6 = outputMin;
+  if (controlOutput5 > outputMax) controlOutput5 = outputMax;
+  if (controlOutput5 < outputMin) controlOutput5 = outputMin;
+  if (controlOutput6 > outputMax) controlOutput6 = outputMax;
+  if (controlOutput6 < outputMin) controlOutput6 = outputMin;
 
   esc5.writeMicroseconds(controlOutput5);
   esc6.writeMicroseconds(controlOutput6);
@@ -236,10 +231,8 @@ void loop()
   }
 
   if (receivedChar == 'N') setpoint = 0;
-
-  if (receivedChar == 'L') setpoint = 10.0;
-
-  if (receivedChar == 'R') setpoint = -10.0;
+  if (receivedChar == 'L') setpoint = 20.0;
+  if (receivedChar == 'R') setpoint = -20.0;
 
   // Serial.print("Setpoint: ");
   // Serial.print(setpoint);
