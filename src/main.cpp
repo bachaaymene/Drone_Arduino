@@ -4,42 +4,43 @@
 #include <Wire.h>
 #include <Servo.h>
 #include <SoftwareSerial.h>
-// ---------------------------------------------------------------------------
+
 #define YAW 0
 #define PITCH 1
 #define ROLL 2
-#define BT_RX 10  // Arduino RX (connect to Bluetooth TX)
+#define BT_RX 10
 #define BT_TX 11
 
-SoftwareSerial bluetooth(BT_RX, BT_TX);
+SoftwareSerial bluetooth(BT_RX, BT_TX); // RX, TX
 char receivedChar;
 
 MPU6050 mpu;
-Servo esc5;  // ESC تعريف كائن للتحكم في الـ
+Servo esc5;
 Servo esc6;
+
 // MPU control/status vars
-bool dmpReady = false;   // set true if DMP init was successful
-uint8_t mpuIntStatus;    // holds actual interrupt status byte from MPU
-uint8_t devStatus;       // return status after each device operation (0 = success, !0 = error)
-uint16_t packetSize;     // expected DMP packet size (default is 42 bytes)
-uint16_t fifoCount;      // count of all bytes currently in FIFO
-uint8_t fifoBuffer[64];  // FIFO storage buffer
+bool dmpReady = false;  // set true if DMP init was successful
+uint8_t mpuIntStatus;   // holds actual interrupt status byte from MPU
+uint8_t devStatus;      // return status after each device operation (0 = success, !0 = error)
+uint16_t packetSize;    // expected DMP packet size (default is 42 bytes)
+uint16_t fifoCount;     // count of all bytes currently in FIFO
+uint8_t fifoBuffer[64]; // FIFO storage buffer
 
 // Orientation/motion vars
-Quaternion q;         // [w, x, y, z]         quaternion container
-VectorFloat gravity;  // [x, y, z]            gravity vector
-float ypr[3];         // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
+Quaternion q;        // [w, x, y, z]         quaternion container
+VectorFloat gravity; // [x, y, z]            gravity vector
+float ypr[3];        // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 
-volatile bool mpuInterrupt = false;  // Indicates whether MPU interrupt pin has gone high
-// ---------------------------------------------------------------------------
+volatile bool mpuInterrupt = false; // Indicates whether MPU interrupt pin has gone high
 
-void dmpDataReady() {
+void dmpDataReady()
+{
   mpuInterrupt = true;
 }
 
-float Kp = 1.0;  // معامل التناسبي
-float Ki = 1.5;  // معامل التكاملي
-float Kd = 2.5;  // معامل التفاضلي
+float Kp = 1.0;
+float Ki = 1.5;
+float Kd = 2.5;
 
 // متغيرات PID
 float integral = 0.0;
@@ -47,25 +48,25 @@ float derivative = 0.0;
 float controlOutput5 = 0.0;
 float controlOutput6 = 0.0;
 float previousError = 0.0;
-float setpoint = 0.0;      // القيمة المطلوبة (الهدف)
-float currentAngle = 0.0;  // القراءة الحالية من المستشعر
-float outputMax = 1900.0;  // للمحركات DC (PWM)
+float setpoint = 0.0;
+float currentAngle = 0.0;
+float outputMax = 1900.0;
 float outputMin = 1010.0;
 // متغيرات الوقت
 unsigned long currentTime;
 unsigned long previousTime;
 float deltaT;
 
-void setup() {
-  esc5.attach(5, 1000, 2000);    // سلك الإشارة متصل بالمنفذ 5
-  esc6.attach(6, 1000, 2000);    // سلك الإشارة متصل بالمنفذ 6
-  esc5.writeMicroseconds(2000);  // ESC تهيئة الـ
-  esc6.writeMicroseconds(2000);  // ESC تهيئة الـ
+void setup()
+{
+  esc5.attach(5, 1000, 2000);
+  esc6.attach(6, 1000, 2000);
+  esc5.writeMicroseconds(2000);
+  esc6.writeMicroseconds(2000);
+
   bluetooth.begin(9600);
-
   Wire.begin();
-  TWBR = 24;  // 400kHz I2C clock (200kHz if CPU is 8MHz)
-
+  TWBR = 24; // 400kHz I2C clock (200kHz if CPU is 8MHz)
   Serial.begin(57600);
 
   Serial.println(F("Initializing I2C devices..."));
@@ -88,7 +89,8 @@ void setup() {
   mpu.setZGyroOffset(50);
 
   // Returns 0 if it worked
-  if (devStatus == 0) {
+  if (devStatus == 0)
+  {
     // Turn on the DMP, now that it's ready
     Serial.println(F("Enabling DMP..."));
     mpu.setDMPEnabled(true);
@@ -104,30 +106,36 @@ void setup() {
 
     // Get expected DMP packet size for later comparison
     packetSize = mpu.dmpGetFIFOPacketSize();
-  } else {
+  }
+  else
+  {
 
     Serial.print(F("DMP Initialization failed (code "));
     Serial.print(devStatus);
     Serial.println(F(")"));
   }
+
   Serial.println("high");
   delay(3000);
-  esc5.writeMicroseconds(1000);  // ESC تهيئة الـ
-  esc6.writeMicroseconds(1000);  // ESC تهيئة الـ
+  esc5.writeMicroseconds(1000);
+  esc6.writeMicroseconds(1000);
   Serial.println("low");
   delay(6000);
 
   previousTime = millis();
 }
 
-void loop() {
+void loop()
+{
   // If programming failed, don't try to do anything
-  if (!dmpReady) {
+  if (!dmpReady)
+  {
     return;
   }
 
   // Wait for MPU interrupt or extra packet(s) available
-  while (!mpuInterrupt && fifoCount < packetSize) {
+  while (!mpuInterrupt && fifoCount < packetSize)
+  {
     // Do nothing...
   }
 
@@ -139,15 +147,19 @@ void loop() {
   fifoCount = mpu.getFIFOCount();
 
   // Check for overflow (this should never happen unless our code is too inefficient)
-  if ((mpuIntStatus & 0x10) || fifoCount == 1024) {
+  if ((mpuIntStatus & 0x10) || fifoCount == 1024)
+  {
     // reset so we can continue cleanly
     mpu.resetFIFO();
     Serial.println(F("FIFO overflow!"));
 
     // Otherwise, check for DMP data ready interrupt (this should happen frequently)
-  } else if (mpuIntStatus & 0x02) {
+  }
+  else if (mpuIntStatus & 0x02)
+  {
     // Wait for correct available data length, should be a VERY short wait
-    while (fifoCount < packetSize) {
+    while (fifoCount < packetSize)
+    {
       fifoCount = mpu.getFIFOCount();
     }
 
@@ -168,73 +180,72 @@ void loop() {
     // Serial.print("\t");
     // Serial.print(ypr[PITCH] * (180 / M_PI));
     // Serial.print("\t");
+  }
+  currentAngle = ypr[ROLL] * (180 / M_PI);
+  float error = setpoint - currentAngle;
+  currentTime = millis();
+  deltaT = (currentTime - previousTime) / 1000.0; // تحويل إلى ثوانٍ
+  previousTime = currentTime;
+  integral = integral + (error * deltaT);
+  derivative = (error - previousError) / deltaT;
+  previousError = error;
+  controlOutput5 = 1300 + (Kp * error) + (Ki * integral) + (Kd * derivative);
+  controlOutput6 = 1300 - (Kp * error) + (Ki * integral) + (Kd * derivative);
+  if (controlOutput5 > outputMax)
+    controlOutput5 = outputMax;
+  if (controlOutput5 < outputMin)
+    controlOutput5 = outputMin;
+  if (controlOutput6 > outputMax)
+    controlOutput6 = outputMax;
+  if (controlOutput6 < outputMin)
+    controlOutput6 = outputMin;
 
-    currentAngle = ypr[ROLL] * (180 / M_PI);
-    float error = setpoint - currentAngle;
-    currentTime = millis();
-    deltaT = (currentTime - previousTime) / 1000.0;  // تحويل إلى ثوانٍ
-    previousTime = currentTime;
-    integral = integral + (error * deltaT);
-    derivative = (error - previousError) / deltaT;
-    previousError = error;
-    controlOutput5 = 1300 + (Kp * error) + (Ki * integral) + (Kd * derivative);
-    controlOutput6 = 1300 - (Kp * error) + (Ki * integral) + (Kd * derivative);
-    if (controlOutput5 > outputMax) controlOutput5 = outputMax;
-    if (controlOutput5 < outputMin) controlOutput5 = outputMin;
-    if (controlOutput6 > outputMax) controlOutput6 = outputMax;
-    if (controlOutput6 < outputMin) controlOutput6 = outputMin;
+  esc5.writeMicroseconds(controlOutput5);
+  esc6.writeMicroseconds(controlOutput6);
 
-    esc5.writeMicroseconds(controlOutput5);
-    esc6.writeMicroseconds(controlOutput6);
+  // Serial.print("error: ");
+  // Serial.print(error);
+  // Serial.print("\t");
+  // Serial.print("integral: ");
+  // Serial.print(integral);
+  // Serial.print("\t");
+  // Serial.print("derivative: ");
+  // Serial.print(derivative);
+  // Serial.print("\t");
+  // Serial.print("setpoint: ");
+  // Serial.println(setpoint);
+  // Serial.print("\t");
 
-    // Serial.print("error: ");
-    // Serial.print(error);
-    // Serial.print("\t");
-    // Serial.print("integral: ");
-    // Serial.print(integral);
-    // Serial.print("\t");
-    // Serial.print("derivative: ");
-    // Serial.print(derivative);
-    // Serial.print("\t");
-    // Serial.print("setpoint: ");
-    // Serial.println(setpoint);
-    // Serial.print("\t");
+  // if (bluetooth.available()) {
+  //   // Read incoming data and display on Serial Monitor
+  //   receivedChar = bluetooth.read();
+  //   Serial.print("receivedChar: ");
+  //   Serial.println(receivedChar);
+  // }
 
-
-    // if (bluetooth.available()) {
-    //   // Read incoming data and display on Serial Monitor
-    //   receivedChar = bluetooth.read();
-    //   Serial.print("receivedChar: ");
-    //   Serial.println(receivedChar);
-    // }
-
-    if (bluetooth.available()) {
-      int incoming = bluetooth.read();            // read as int to detect -1 if no data
-      if (incoming != -1) {
-        char c = (char)incoming;
-        // ignore common line endings
-        if (incoming != '\r' && incoming != '\n') {
-          // print both printable char and numeric codes for debugging
-          Serial.print("receivedChar: '");
-          Serial.print(c);
-          receivedChar = c;  // use for control below
-        }
+  if (bluetooth.available())
+  {
+    int incoming = bluetooth.read(); // read as int to detect -1 if no data
+    if (incoming != -1)
+    {
+      char c = (char)incoming;
+      // ignore common line endings
+      if (incoming != '\r' && incoming != '\n')
+      {
+        // print both printable char and numeric codes for debugging
+        Serial.print("receivedChar: ");
+        Serial.print(c);
+        receivedChar = c; // use for control below
       }
     }
-
-    if (receivedChar == 'N') {
-
-      setpoint = 0;
-    }
-    if (receivedChar == 'L') {
-
-      setpoint = 10.0;
-    }
-    if (receivedChar == 'R') {
-
-      setpoint = -10.0;
-    }
-    Serial.print("Setpoint: ");
-    Serial.println(setpoint);
   }
+
+  if (receivedChar == 'N') setpoint = 0;
+
+  if (receivedChar == 'L') setpoint = 10.0;
+
+  if (receivedChar == 'R') setpoint = -10.0;
+
+  Serial.print("Setpoint: ");
+  Serial.println(setpoint);
 }
