@@ -43,7 +43,7 @@ float Kp = 1.0;
 float Ki = 3;
 float Kd = 1.0;
 // متغيرات PID
-float rollIntegral = 0.0; 
+float rollIntegral = 0.0;
 float pitchIntegral = 0.0;
 float yawIntegral = 0.0;
 float rollderivative = 0.0;
@@ -64,6 +64,9 @@ float currentPitchAngle = 0.0;
 float currentYawAngle = 0.0;
 float outputMax = 1900.0;
 float outputMin = 1010.0;
+float speed = 1010.0;
+bool stopped = false;
+
 // متغيرات الوقت
 unsigned long currentTime;
 unsigned long previousTime;
@@ -96,12 +99,12 @@ void setup()
   devStatus = mpu.dmpInitialize();
 
   // MPU calibration: set YOUR offsets here.
-  mpu.setXAccelOffset(-281);
-  mpu.setYAccelOffset(1042);
-  mpu.setZAccelOffset(606);
-  mpu.setXGyroOffset(149);
-  mpu.setYGyroOffset(32);
-  mpu.setZGyroOffset(50);
+  mpu.setXAccelOffset(-222);
+  mpu.setYAccelOffset(1046);
+  mpu.setZAccelOffset(638);
+  mpu.setXGyroOffset(151);
+  mpu.setYGyroOffset(33);
+  mpu.setZGyroOffset(58);
 
   // Returns 0 if it worked
   if (devStatus == 0)
@@ -145,13 +148,15 @@ void setup()
 void loop()
 {
   // Serial.println(currentTime / 1000);
-  if (currentTime / 1000 > 100)
+  if (stopped)
   {
+    esc3.writeMicroseconds(1000);
     esc5.writeMicroseconds(1000);
     esc6.writeMicroseconds(1000);
-    Serial.println("MPU timeout — motors stopped.");
+    esc9.writeMicroseconds(1000);
     return;
   }
+
   // If programming failed, don't try to do anything
   if (!dmpReady)
   {
@@ -206,7 +211,7 @@ void loop()
     // Serial.print(ypr[PITCH] * (180 / M_PI));
     // Serial.print("\t");
   }
-  
+
   currentRollAngle = ypr[ROLL] * (180 / M_PI);
   currentPitchAngle = ypr[PITCH] * (180 / M_PI);
   currentYawAngle = ypr[YAW] * (180 / M_PI);
@@ -220,45 +225,65 @@ void loop()
   pitchIntegral = pitchIntegral + (pitchError * deltaT);
   yawIntegral = yawIntegral + (yawError * deltaT);
   // قيد التكامل ليكون ضمن الحدود
-  if (rollIntegral > integralMax) rollIntegral = integralMax;
-  if (rollIntegral < -integralMax) rollIntegral = -integralMax;
+  if (rollIntegral > integralMax)
+    rollIntegral = integralMax;
+  if (rollIntegral < -integralMax)
+    rollIntegral = -integralMax;
 
-  if (pitchIntegral > integralMax) pitchIntegral = integralMax;
-  if (pitchIntegral < -integralMax) pitchIntegral = -integralMax;
+  if (pitchIntegral > integralMax)
+    pitchIntegral = integralMax;
+  if (pitchIntegral < -integralMax)
+    pitchIntegral = -integralMax;
 
-  if (yawIntegral > integralMax) yawIntegral = integralMax;
-  if (yawIntegral < -integralMax) yawIntegral = -integralMax;
+  if (yawIntegral > 50.0)
+    yawIntegral = 50.0;
+  if (yawIntegral < -50.0)
+    yawIntegral = -50.0;
 
   pitchDerivative = (pitchError - previousPitchError) / deltaT;
   previousPitchError = pitchError;
   // قيد المشتق ليكون ضمن الحدود
-  if (pitchDerivative > derivativeMax) pitchDerivative = derivativeMax;
-  if (pitchDerivative < -derivativeMax) pitchDerivative = -derivativeMax;
+  if (pitchDerivative > derivativeMax)
+    pitchDerivative = derivativeMax;
+  if (pitchDerivative < -derivativeMax)
+    pitchDerivative = -derivativeMax;
 
   rollderivative = (rollError - previousRollError) / deltaT;
-  previousRollError = rollError;  
+  previousRollError = rollError;
   // قيد المشتق ليكون ضمن الحدود
-  if (rollderivative > derivativeMax) rollderivative = derivativeMax;
-  if (rollderivative < -derivativeMax) rollderivative = -derivativeMax;
+  if (rollderivative > derivativeMax)
+    rollderivative = derivativeMax;
+  if (rollderivative < -derivativeMax)
+    rollderivative = -derivativeMax;
   yawDerivative = (yawError - previousYawError) / deltaT;
   previousYawError = yawError;
   // قيد المشتق ليكون ضمن الحدود
-  if (yawDerivative > derivativeMax) yawDerivative = derivativeMax;
-  if (yawDerivative < -derivativeMax) yawDerivative = -derivativeMax;
+  if (yawDerivative > derivativeMax)
+    yawDerivative = derivativeMax;
+  if (yawDerivative < -derivativeMax)
+    yawDerivative = -derivativeMax;
 
-  controlOutput5 = 1300 + (Kp * rollError + Ki * rollIntegral + Kd * rollderivative);
-  controlOutput6 = 1300 - (Kp * rollError + Ki * rollIntegral + Kd * rollderivative);
-  controlOutput3 = 1300 + (Kp * pitchError + Ki * pitchIntegral + Kd * pitchDerivative);
-  controlOutput9 = 1300 - (Kp * pitchError + Ki * pitchIntegral + Kd * pitchDerivative);
+  controlOutput5 = speed + (Kp * rollError + Ki * rollIntegral + Kd * rollderivative) - (Kp * yawError + Ki * yawIntegral);
+  controlOutput6 = speed - (Kp * rollError + Ki * rollIntegral + Kd * rollderivative) - (Kp * yawError + Ki * yawIntegral);
+  controlOutput3 = speed - (Kp * pitchError + Ki * pitchIntegral + Kd * pitchDerivative) + (Kp * yawError + Ki * yawIntegral);
+  controlOutput9 = speed + (Kp * pitchError + Ki * pitchIntegral + Kd * pitchDerivative) + (Kp * yawError + Ki * yawIntegral);
 
-  if (controlOutput5 > outputMax) controlOutput5 = outputMax;
-  if (controlOutput5 < outputMin) controlOutput5 = outputMin;
-  if (controlOutput6 > outputMax) controlOutput6 = outputMax;
-  if (controlOutput6 < outputMin) controlOutput6 = outputMin;
-  if (controlOutput3 > outputMax) controlOutput3 = outputMax;
-  if (controlOutput3 < outputMin) controlOutput3 = outputMin;
-  if (controlOutput9 > outputMax) controlOutput9 = outputMax;
-  if (controlOutput9 < outputMin) controlOutput9 = outputMin;
+  if (controlOutput5 > outputMax)
+    controlOutput5 = outputMax;
+  if (controlOutput5 < outputMin)
+    controlOutput5 = outputMin;
+  if (controlOutput6 > outputMax)
+    controlOutput6 = outputMax;
+  if (controlOutput6 < outputMin)
+    controlOutput6 = outputMin;
+  if (controlOutput3 > outputMax)
+    controlOutput3 = outputMax;
+  if (controlOutput3 < outputMin)
+    controlOutput3 = outputMin;
+  if (controlOutput9 > outputMax)
+    controlOutput9 = outputMax;
+  if (controlOutput9 < outputMin)
+    controlOutput9 = outputMin;
 
   esc5.writeMicroseconds(controlOutput5);
   esc6.writeMicroseconds(controlOutput6);
@@ -279,9 +304,23 @@ void loop()
     }
   }
 
-  if (receivedChar == 'N') setpoint = 0;
-  if (receivedChar == 'L') setpoint = 10.0;
-  if (receivedChar == 'R') setpoint = -10.0;
+  if (receivedChar == 'N')
+    speed = speed;
+  if (receivedChar == 'L')
+    speed += -1.0;
+  if (receivedChar == 'R')
+    speed += 1.0;
+  if (receivedChar == 'S')
+  {
+    Serial.println("Stopping motors.");
+    stopped = true;
+  }
+  if (speed > outputMax)
+    speed = outputMax;
+  if (speed < outputMin)
+    speed = outputMin;
+  // Serial.print("Speed: ");
+  // Serial.println(speed);
 
   // // Serial.print("Setpoint: ");
   // // Serial.print(setpoint);
@@ -292,7 +331,7 @@ void loop()
   // Serial.print("rollIntegral: ");
   // Serial.print(Ki*rollIntegral);
   // Serial.print("    ");
-  // Serial.print("rollderivative: "); 
+  // Serial.print("rollderivative: ");
   // Serial.println(Kd*rollderivative);
   // // Serial.print("    ");
   // // Serial.print("rollIntegral: ");
