@@ -101,11 +101,11 @@ void setup()
 
   // MPU calibration: set YOUR offsets here.
   mpu.setXAccelOffset(-222);
-  mpu.setYAccelOffset(1046);
-  mpu.setZAccelOffset(638);
-  mpu.setXGyroOffset(151);
-  mpu.setYGyroOffset(33);
-  mpu.setZGyroOffset(58);
+  mpu.setYAccelOffset(1000);
+  mpu.setZAccelOffset(614);
+  mpu.setXGyroOffset(148);
+  mpu.setYGyroOffset(35);
+  mpu.setZGyroOffset(56);
 
   // Returns 0 if it worked
   if (devStatus == 0)
@@ -151,6 +151,7 @@ void loop()
   // Check if 60 seconds have elapsed; if so, stop all motors
   if ((currentTime - contini) / 1000.0 >= 6.0)
   {
+    Serial.println("bluetooth timeout - stopping motors.");
     // Stop all motors
     esc5.writeMicroseconds(1000);
     esc6.writeMicroseconds(1000);
@@ -318,21 +319,31 @@ void loop()
   }
 
   if (receivedChar == 'N')
+  {
+    Serial.println("N");
     speed = speed;
+  }
   if (receivedChar == 'L')
+  {
+    Serial.println("L");
     speed += -1.0;
+  }
   if (receivedChar == 'R')
+  {
+    Serial.println("R");
     speed += 1.0;
+  }
   if (receivedChar == 'S')
   {
     Serial.println("Stopping motors.");
     stopped = true;
   }
-  if (receivedChar == 'B'){
+  if (receivedChar == 'B')
+  {
     Serial.println("refreshing");
     contini = currentTime;
   }
-    
+
   if (speed > outputMax)
     speed = outputMax;
   if (speed < outputMin)
