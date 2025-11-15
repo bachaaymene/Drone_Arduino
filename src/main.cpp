@@ -66,6 +66,7 @@ float outputMax = 1900.0;
 float outputMin = 1010.0;
 float speed = 1010.0;
 bool stopped = false;
+float contini = 0.0;
 
 // متغيرات الوقت
 unsigned long currentTime;
@@ -147,6 +148,18 @@ void setup()
 
 void loop()
 {
+  // Check if 60 seconds have elapsed; if so, stop all motors
+  if ((currentTime - contini) / 1000.0 >= 6.0)
+  {
+    // Stop all motors
+    esc5.writeMicroseconds(1000);
+    esc6.writeMicroseconds(1000);
+    esc3.writeMicroseconds(1000);
+    esc9.writeMicroseconds(1000);
+    delay(10000); // Hold stopped for 10 seconds to prevent re-entering loop
+    return;
+  }
+
   // Serial.println(currentTime / 1000);
   if (stopped)
   {
@@ -315,6 +328,11 @@ void loop()
     Serial.println("Stopping motors.");
     stopped = true;
   }
+  if (receivedChar == 'B'){
+    Serial.println("refreshing");
+    contini = currentTime;
+  }
+    
   if (speed > outputMax)
     speed = outputMax;
   if (speed < outputMin)
